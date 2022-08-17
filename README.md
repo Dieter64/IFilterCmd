@@ -1,5 +1,5 @@
 # IFilterCmd
-A simple command line caller for IFilterTextReader by Kees van Spelde <sicos2002@hotmail.com> Magic-Sessions. (www.magic-sessions.com)
+A simple command line caller for *IFilterTextReader* by Kees van Spelde <sicos2002@hotmail.com> Magic-Sessions. (www.magic-sessions.com)
 
 ## License Information
 IFilterCmd is licensed under the MIT license:
