@@ -84,6 +84,7 @@ namespace IFilterCmd
                               "Options ('+' activates an option (default if missing), '-' deactivates it')\r\n" +
                               "<input file>     : Source file to run IFilter on\r\n" +
                               "-o <output file> : Destination for output. If not provided output is written to the console.\r\n" +
+                              "-M               : Multiple files (Creates a txt file for each input file which is a simple pattern).\r\n" +
                               "-e               : Doesn't read embedded content, e.g. an attachment inside an E-mail msg file (default false)\r\n" +
                               "-p               : The metadata properties of a document are also returned (default false)\r\n\r\n" +
                               "less important options:\r\n" +
@@ -108,6 +109,7 @@ namespace IFilterCmd
         {
             String inputFile = null;
             String outputFile = null;
+            bool multipleFiles = false;
 
             var options = new FilterReaderOptions();
 
@@ -125,6 +127,9 @@ namespace IFilterCmd
 
                     switch (arg.Substring(1))
                     {
+                        case "M":
+                            multipleFiles = true;
+                            break;
                         case "c":
                         case "c+":
                             // Default is true. 
@@ -227,31 +232,62 @@ namespace IFilterCmd
                 Usage();
             }
 
-            if (!File.Exists(inputFile))
+            if (multipleFiles)
             {
-                Console.WriteLine($"The input file '{inputFile}' does not exists");
-                Usage();
-            }
-
-            try
-            {
-                using (var reader = new FilterReader(inputFile, string.Empty, options))
+                string[] fileNames = Directory.GetFiles(".", inputFile);
+                foreach (var file in fileNames)
                 {
-                    string line;
-
-                    using (TextWriter outStream = String.IsNullOrEmpty(outputFile) ? Console.Out : File.CreateText(outputFile))
+                    try
                     {
-                        while ((line = reader.ReadLine()) != null)
+                        string outFile = file + ".txt";
+                        using (var reader = new FilterReader(file, string.Empty, options))
                         {
-                            outStream.WriteLine(line);
+                            string line;
+
+                            using (TextWriter outStream = File.CreateText(outFile))
+                            {
+                                while ((line = reader.ReadLine()) != null)
+                                {
+                                    outStream.WriteLine(line);
+                                }
+                            }
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Exception call in IFIlterCmd for file:{file}: {ex.Message}");
+                        // Environment.Exit(1);
                     }
                 }
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Exception call in IFIlterCmd:{ex.Message}");
-                Environment.Exit(1);
+                if (!File.Exists(inputFile))
+                {
+                    Console.WriteLine($"The input file '{inputFile}' does not exists");
+                    Usage();
+                }
+
+                try
+                {
+                    using (var reader = new FilterReader(inputFile, string.Empty, options))
+                    {
+                        string line;
+
+                        using (TextWriter outStream = String.IsNullOrEmpty(outputFile) ? Console.Out : File.CreateText(outputFile))
+                        {
+                            while ((line = reader.ReadLine()) != null)
+                            {
+                                outStream.WriteLine(line);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Exception call in IFIlterCmd:{ex.Message}");
+                    Environment.Exit(1);
+                }
             }
         }
     }
