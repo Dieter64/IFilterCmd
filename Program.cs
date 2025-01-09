@@ -25,7 +25,6 @@
 
 using System;
 using System.IO;
-using System.Runtime.Remoting.Messaging;
 using IFilterTextReader;
 
 /* From IFilterTextReader documentation
