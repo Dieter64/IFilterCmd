@@ -79,12 +79,14 @@ namespace IFilterCmd
     {
         private static void Usage()
         {
-            Console.WriteLine("Usage: IFilterCmd <input file> [-o <output file> -c[+/-] -e[+/-] -p[+/-] -m[+/-] -te <timeout> -ti <timeout> -?]\r\n\r\n" +
+            Console.WriteLine("Usage: IFilterCmd <input file> [-S -o <output file> -c[+/-] -e[+/-] -p[+/-] -m[+/-] -te <timeout> -ti <timeout> -?]\r\n\r\n" +
                               "IFilterCmd is a simple command line front end for IFilterTextReader available at github.\r\n" +
                               "Options ('+' activates an option (default if missing), '-' deactivates it')\r\n" +
-                              "<input file>     : Source file to run IFilter on\r\n" +
+                              "<input file>     : Source file to run IFilter on! It could contain patterns.\r\n" + 
+                              "                   In this case output file is input file + '.txt'. -o is ignored \r\n" +
+                              "-S               : Recursiv file search if pattern are contained in the input file.\r\n" +
                               "-o <output file> : Destination for output. If not provided output is written to the console.\r\n" +
-                              "-M               : Multiple files (Creates a txt file for each input file which is a simple pattern).\r\n" +
+                              "-o <output file> : Destination for output. If not provided output is written to the console.\r\n" +
                               "-e               : Doesn't read embedded content, e.g. an attachment inside an E-mail msg file (default false)\r\n" +
                               "-p               : The metadata properties of a document are also returned (default false)\r\n\r\n" +
                               "less important options:\r\n" +
@@ -93,7 +95,8 @@ namespace IFilterCmd
                               "-w <char>        : Character which identifies a word break. Default is the slash '-'.\r\n" +
                               "-te <timeout>    : Define timeout in millisecons for large files with aborting after timeout elapsed\r\n" +
                               "-ti <timeout>    : Define timeout in millisecons for large files with continuing after timeout elapsed\r\n\r\n" +
-                              "Example: IFilterCmd c:\\temp\\test.pdf -o c:\\temp\\output.txt -c- -e- -m+ -ti 5000\r\n\r\n" +
+                              "Example: IFilterCmd c:\\temp\\test.pdf -o c:\\temp\\output.txt -c- -e- -m+ -ti 5000\r\n" +
+                              "         IFilterCmd c:\\temp\\*.pdf /S\r\n\r\n" +
                               "Exit code is 0 for success (you have to still check for an empty output file) and 1 for errors");
 
             Environment.Exit(1);
@@ -105,11 +108,52 @@ namespace IFilterCmd
             Usage();
         }
 
+        private static void HandleFile(string inputFile, TextWriter outputFile, FilterReaderOptions options)
+        {
+            string tempFile = null;
+
+            FilterReader reader = null;
+
+            try
+            {
+                try
+                {
+                    reader = new FilterReader(inputFile, string.Empty, options);
+                }
+                catch (Exception ex)
+                {
+                    tempFile = Path.ChangeExtension(Path.GetTempFileName(), Path.GetExtension(inputFile));
+                    Console.WriteLine($"Input file '{inputFile}' could not be read directly. Copying to temporary file '{tempFile}'");
+                    File.Copy(inputFile, tempFile, true);
+                    inputFile = tempFile;
+                    reader = new FilterReader(tempFile, string.Empty, options);
+                }
+                string line;
+
+                using (TextWriter outStream = outputFile)
+                {
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        outStream.WriteLine(line);
+                    }
+                }
+            }
+            finally
+            {
+                reader?.Dispose();
+
+                if (tempFile != null)
+                {
+                    File.Delete(tempFile);
+                }
+            }
+        }
+
         static void Main(string[] args)
         {
             String inputFile = null;
             String outputFile = null;
-            bool multipleFiles = false;
+            bool recursive = false;
 
             var options = new FilterReaderOptions();
 
@@ -127,8 +171,8 @@ namespace IFilterCmd
 
                     switch (arg.Substring(1))
                     {
-                        case "M":
-                            multipleFiles = true;
+                        case "S":
+                            recursive = true;
                             break;
                         case "c":
                         case "c+":
@@ -232,32 +276,48 @@ namespace IFilterCmd
                 Usage();
             }
 
-            if (multipleFiles)
+            if (inputFile.Contains("*") || inputFile.Contains("?"))
             {
-                string[] fileNames = Directory.GetFiles(".", inputFile);
-                foreach (var file in fileNames)
+                try
                 {
-                    try
+                    if (outputFile != null)
                     {
-                        string outFile = file + ".txt";
-                        using (var reader = new FilterReader(file, string.Empty, options))
-                        {
-                            string line;
+                        Console.WriteLine($"Output file parameter is ignored if multiple files are involved");
+                        outputFile = null;
+                    }
 
-                            using (TextWriter outStream = File.CreateText(outFile))
-                            {
-                                while ((line = reader.ReadLine()) != null)
-                                {
-                                    outStream.WriteLine(line);
-                                }
-                            }
+                    // Try to split into directory and pattern
+                    string directory = Path.GetDirectoryName(inputFile);
+                    string pattern = Path.GetFileName(inputFile);
+
+                    if (String.IsNullOrEmpty(directory))
+                    {
+                        directory = Directory.GetCurrentDirectory();
+                    }
+
+                    string[] fileNames = Directory.GetFiles(directory, pattern, recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+                    foreach (var file in fileNames)
+                    {
+                        if (file.Contains("~"))
+                        {
+                            Console.WriteLine($"Ignore file: {file}");
+                            continue;
+                        }
+                        try
+                        {
+                            Console.WriteLine($"Processing file: {file}");
+                            HandleFile(file, File.CreateText(file + ".txt"), options);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Exception call in IFIlterCmd for file:{file}: {ex.Message}");
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Exception call in IFIlterCmd for file:{file}: {ex.Message}");
-                        // Environment.Exit(1);
-                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Exception call in IFIlterCmd:{ex.Message}");
+                    Environment.Exit(1);
                 }
             }
             else
@@ -270,18 +330,8 @@ namespace IFilterCmd
 
                 try
                 {
-                    using (var reader = new FilterReader(inputFile, string.Empty, options))
-                    {
-                        string line;
-
-                        using (TextWriter outStream = String.IsNullOrEmpty(outputFile) ? Console.Out : File.CreateText(outputFile))
-                        {
-                            while ((line = reader.ReadLine()) != null)
-                            {
-                                outStream.WriteLine(line);
-                            }
-                        }
-                    }
+                    TextWriter outStream = String.IsNullOrEmpty(outputFile) ? Console.Out : File.CreateText(outputFile);
+                    HandleFile(inputFile, outStream, options);
                 }
                 catch (Exception ex)
                 {
