@@ -90,7 +90,7 @@ namespace IFilterCmd
                               "-e               : Doesn't read embedded content, e.g. an attachment inside an E-mail msg file (default false)\r\n" +
                               "-p               : The metadata properties of a document are also returned (default false)\r\n\r\n" +
                               "less important options:\r\n" +
-                              "-c               : Do cleanup characters (default true). Indicates that certain characters should be translated to likely ASCII characters\r\n" +
+                              "-c               : Do cleanup characters (default false). Indicates that certain characters should be translated to likely ASCII characters\r\n" +
                               "-m               : Read input file completely into memory before acting (default false)\r\n" +
                               "-w <char>        : Character which identifies a word break. Default is the slash '-'.\r\n" +
                               "-te <timeout>    : Define timeout in millisecons for large files with aborting after timeout elapsed\r\n" +
