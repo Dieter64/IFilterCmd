@@ -157,6 +157,9 @@ namespace IFilterCmd
 
             var options = new FilterReaderOptions();
 
+            // Change default for cleanup. True makes few sense since it replaces unicode characters
+            options.DoCleanUpCharacters = false;
+
             for (int i = 0; i < args.Length; i++)
             {
                 String arg = args[i];
@@ -176,7 +179,7 @@ namespace IFilterCmd
                             break;
                         case "c":
                         case "c+":
-                            // Default is true. 
+                            // Default is true, but set to false above
                             options.DoCleanUpCharacters = true;
                             break;
                         case "c-":
