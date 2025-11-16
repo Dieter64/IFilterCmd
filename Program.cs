@@ -331,6 +331,7 @@ namespace IFilterCmd
                     Usage();
                 }
 
+                Console.OutputEncoding = System.Text.Encoding.UTF8;
                 try
                 {
                     TextWriter outStream = String.IsNullOrEmpty(outputFile) ? Console.Out : File.CreateText(outputFile);
